@@ -2,13 +2,8 @@
  * Frontend simple para CRUD de productos de la tienda de perritos..
  */
 
-// Determinar la URL base de la API según el host
-// frontend/app.js
-
-
+// Ruta relativa: Nginx (frontend) hace proxy de /api/ al servicio backend
 const API_BASE = "/api/productos";
-
-// Ejemplo: const API_BASE = "http://10.0.2.30:3001/api/productos";
 
 
 let editandoId = null;

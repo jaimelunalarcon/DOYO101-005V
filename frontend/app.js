@@ -137,9 +137,13 @@ async function guardarProducto() {
       throw new Error(data.message || "Error al guardar el producto");
     }
 
+    const fueEdicion = Boolean(editandoId);
     limpiarFormulario();
     await cargarProductos();
-    setStatus(editandoId ? "Producto actualizado correctamente." : "Producto creado correctamente.", "ok");
+    setStatus(
+      fueEdicion ? "Producto editado correctamente." : "Producto creado correctamente.",
+      "ok"
+    );
   } catch (err) {
     console.error(err);
     setStatus("Ocurrió un error al guardar el producto.", "error");

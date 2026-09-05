@@ -39,9 +39,6 @@ Se eligió **GitFlow** frente a trunk-based porque:
 4. Revisión + CI en verde → merge a `develop`
 5. Cuando `develop` esté estable → **PR de `develop` → `main`** (release)
 
-```text
-feature/*  ──PR──►  develop  ──PR──►  main
-```
 
 ### Hotfix
 

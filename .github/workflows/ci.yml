@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validar estructura del proyecto
+        run: |
+          test -f frontend/index.html
+          test -f frontend/app.js
+          test -f frontend/Dockerfile
+          test -f backend/server.js
+          test -f backend/package.json
+          test -f backend/Dockerfile
+          test -f db/init.sql
+          test -f db/Dockerfile
+          test -f docker-compose.yml
+
+      - name: Build imágenes Docker
+        run: docker compose build

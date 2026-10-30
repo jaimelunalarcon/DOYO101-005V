@@ -1,6 +1,38 @@
 # Tienda de Alimentos para Perritos 🐶🐶🐶
 
-Stack completo (Frontend + Backend + MySQL) orquestado con Docker Compose.
+Stack completo (Frontend + Backend + Reporting FastAPI + MySQL) orquestado con Docker Compose.
+
+## Integración de reportería (microservicios)
+
+Flujo de la sección **Reportes de inventario**:
+
+```text
+Navegador → Nginx (:8080) → FastAPI (reporting-service:8000)
+                              → Express (backend:3001) → MySQL
+```
+
+| Productos y alta | `http://localhost:8080/productos` |
+| Reporte | `http://localhost:8080/reporte` |
+| Endpoints vía Nginx | `GET /reports/summary`, `/reports/low-stock?threshold=5`, `/reports/top-value?limit=5` |
+| API productos | `GET /api/productos` (sin cambios) |
+
+Nginx hace reverse proxy de `/api/` al backend y de `/reports/` al reporting-service (mismo origen, sin CORS).
+
+El frontend espera solo a que Express esté healthy. Si FastAPI no arranca, la tienda de productos sigue disponible. En `/reporte` la carga falla con un mensaje de error y el botón **Reintentar**.
+
+### Prueba de integración E2E
+
+Con el stack local healthy (el script no detiene contenedores ni borra volúmenes):
+
+```bash
+./scripts/e2e-reporting.sh
+```
+
+Comprueba `/productos`, `/reporte`, el proxy `/api/productos`, el proxy `/reports/*` y que los totales coincidan con los productos que Express lee de MySQL. No asume una cantidad fija de inventario.
+
+En GitHub Actions el job `docker-build` construye las imágenes, levanta los cuatro servicios con credenciales ficticias de CI y ejecuta el mismo script (`TIMEOUT_SEC=180`). Si falla, el job termina con error. Después, también si falló, `docker compose down --remove-orphans --volumes` limpia contenedores y volúmenes solo en el runner.
+
+Comprobado en local con el stack de esta máquina: los cuatro servicios healthy; `./scripts/e2e-reporting.sh` terminó en `E2E_OK` (6 productos, 133 unidades, 0 con stock bajo, top 5). Con `reporting-service` detenido, el frontend quedó healthy, `/productos` cargó el listado y `/reporte` mostró el error de conexión con **Reintentar**. Jest: 19 passed. PyTest: 20 passed.
 
 ## Cómo ejecutar en local
 
@@ -111,9 +143,11 @@ Antes de aprobar/mergear un PR:
 ## Estructura del repositorio
 
 ```text
-├── frontend/                 # HTML/JS + Nginx
+├── frontend/                 # HTML/JS + Nginx (CRUD + reportes)
 ├── backend/                  # API Express + MySQL
-├── db/                       # MySQL 8 + init.sql
+├── reporting-service/        # FastAPI reportes de inventario
+├── db/                       # MySQL 8.4 + init.sql
+├── scripts/e2e-reporting.sh  # Prueba integración Nginx↔APIs
 ├── docker-compose.yml
 ├── .github/workflows/ci.yml  # CI
 └── README.md

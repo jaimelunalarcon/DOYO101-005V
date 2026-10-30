@@ -1,10 +1,9 @@
 /**
- * Frontend simple para CRUD de productos de la tienda de perritos..
+ * Página /productos: listado y alta/edición de productos.
+ * /api/* → backend Express (vía Nginx).
  */
 
-// Ruta relativa: Nginx (frontend) hace proxy de /api/ al servicio backend
 const API_BASE = "/api/productos";
-
 
 let editandoId = null;
 
@@ -27,9 +26,7 @@ function setStatus(mensaje, tipo = "ok") {
 
 async function cargarProductos() {
   try {
-    const res = await fetch(API_BASE);
-    if (!res.ok) throw new Error("Error al cargar productos");
-    const data = await res.json();
+    const data = await fetchJson(API_BASE);
     renderProductos(data);
     setStatus("Productos cargados correctamente.", "ok");
   } catch (err) {
@@ -39,40 +36,37 @@ async function cargarProductos() {
 }
 
 function renderProductos(productos) {
-  tbody.innerHTML = "";
+  clearElement(tbody);
   productos.forEach((p) => {
     const tr = document.createElement("tr");
 
-    tr.innerHTML = `
-      <td>${p.id}</td>
-      <td>${p.nombre}</td>
-      <td>${p.descripcion || ""}</td>
-      <td>$${Number(p.precio).toFixed(2)}</td>
-      <td>${p.stock}</td>
-      <td>
-        <button data-id="${p.id}" class="btn-editar">Editar</button>
-        <button data-id="${p.id}" class="btn-eliminar danger">Eliminar</button>
-      </td>
-    `;
+    appendTextCell(tr, p.id);
+    appendTextCell(tr, p.nombre);
+    appendTextCell(tr, p.descripcion || "");
+    appendTextCell(tr, formatMoney(p.precio));
+    appendTextCell(tr, formatInt(p.stock));
 
-    tbody.appendChild(tr);
-  });
+    const tdAcciones = document.createElement("td");
+    const btnEditar = document.createElement("button");
+    btnEditar.type = "button";
+    btnEditar.textContent = "Editar";
+    btnEditar.className = "btn-editar";
+    btnEditar.addEventListener("click", () => editarProducto(p.id));
 
-  // Asignar eventos a los botones
-  document.querySelectorAll(".btn-editar").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-id");
-      editarProducto(id);
-    });
-  });
-
-  document.querySelectorAll(".btn-eliminar").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-id");
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button";
+    btnEliminar.textContent = "Eliminar";
+    btnEliminar.className = "btn-eliminar danger";
+    btnEliminar.addEventListener("click", () => {
       if (confirm("¿Seguro que deseas eliminar este producto?")) {
-        eliminarProducto(id);
+        eliminarProducto(p.id);
       }
     });
+
+    tdAcciones.appendChild(btnEditar);
+    tdAcciones.appendChild(btnEliminar);
+    tr.appendChild(tdAcciones);
+    tbody.appendChild(tr);
   });
 }
 
@@ -112,14 +106,12 @@ async function guardarProducto() {
   try {
     let res;
     if (editandoId) {
-      // Actualizar
       res = await fetch(`${API_BASE}/${editandoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(producto),
       });
     } else {
-      // Crear
       res = await fetch(API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,9 +139,7 @@ async function guardarProducto() {
 
 async function editarProducto(id) {
   try {
-    const res = await fetch(`${API_BASE}/${id}`);
-    if (!res.ok) throw new Error("No se pudo obtener el producto");
-    const p = await res.json();
+    const p = await fetchJson(`${API_BASE}/${id}`);
     editandoId = p.id;
     formTitle.textContent = `Editar producto #${p.id}`;
     inputNombre.value = p.nombre;
@@ -157,6 +147,7 @@ async function editarProducto(id) {
     inputPrecio.value = p.precio;
     inputStock.value = p.stock;
     setStatus("Editando producto.", "ok");
+    document.getElementById("seccion-nuevo-producto").scrollIntoView({ behavior: "smooth" });
   } catch (err) {
     console.error(err);
     setStatus("No se pudo cargar el producto para editarlo.", "error");
@@ -175,7 +166,6 @@ async function eliminarProducto(id) {
   }
 }
 
-// Eventos
 btnCargar.addEventListener("click", cargarProductos);
 btnGuardar.addEventListener("click", guardarProducto);
 btnCancelar.addEventListener("click", () => {
@@ -183,5 +173,4 @@ btnCancelar.addEventListener("click", () => {
   setStatus("Edición cancelada.", "ok");
 });
 
-// Cargar productos al iniciar
 cargarProductos();

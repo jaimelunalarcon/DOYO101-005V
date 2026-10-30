@@ -135,8 +135,40 @@ Antes de aprobar/mergear un PR:
 
 ### GitHub Actions (CI)
 
-- Se ejecuta en **push a `develop`** y en **pull request a `main`**.
-- Valida la estructura del proyecto y hace `docker compose build`.
+- Se ejecuta en **push a `develop`** y en **pull request a `develop` o `main`**.
+- Corre Jest, PyTest, Trivy, auditorías, SonarQube y, en `docker-build`, la prueba E2E con Docker Compose.
+- No despliega. Al terminar, limpia los contenedores del runner.
+
+### Despliegue continuo simulado (CD)
+
+CI valida. CD, en `.github/workflows/cd.yml`, despliega el mismo commit solo después de un CI exitoso. No hay un servidor de producción: el destino es el runner de GitHub Actions, que se destruye al final.
+
+```text
+push a develop
+      │
+      ▼
+workflow CI ── fallo ──► no hay CD
+      │
+      éxito (ese SHA)
+      ▼
+workflow_run
+      │
+      ▼
+checkout de ese SHA → compose config/build/up
+      → scripts/e2e-reporting.sh
+      → resumen + artifact deployment-report
+      → compose down --volumes (solo el runner)
+```
+
+El disparo automático es `workflow_run` del workflow `CI`, y solo si el evento fue un **push a `develop`** con conclusión `success`. Un PR, una rama feature o un CI fallido no despliegan. El checkout usa `workflow_run.head_sha`, no el HEAD posterior de `develop`.
+
+GitHub solo ejecuta `workflow_run` si `cd.yml` está en la rama por defecto (`main`). El disparo automático empieza cuando este workflow llega a `main`. La definición que corre es la de `main`; el código que se despliega es el SHA de `develop` que aprobó el CI.
+
+También se puede lanzar a mano con `workflow_dispatch`, únicamente desde `develop`. Ese camino consulta la API de Actions y se detiene si ese SHA no tiene un CI de push a `develop` en `success`.
+
+Después de `up`, el mismo `scripts/e2e-reporting.sh` exige los cuatro servicios healthy, `/productos`, `/reporte`, `/api/productos` y `/reports/*` coherentes con Express. Si esa prueba falla, el despliegue queda fallido aunque `up` haya salido en cero.
+
+La evidencia queda en el resumen del job y en el artifact `deployment-report` (14 días): SHA, rama, id de ejecución, hora UTC, estado de los contenedores y salida de la E2E. No incluye contraseñas ni el entorno completo. La limpieza (`docker compose down --remove-orphans --volumes`) corre siempre, también si falló, y solo dentro del workflow. No toca el MySQL local.
 
 ---
 
@@ -150,5 +182,6 @@ Antes de aprobar/mergear un PR:
 ├── scripts/e2e-reporting.sh  # Prueba integración Nginx↔APIs
 ├── docker-compose.yml
 ├── .github/workflows/ci.yml  # CI
+├── .github/workflows/cd.yml  # CD simulado en el runner
 └── README.md
 ```

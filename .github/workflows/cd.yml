@@ -1,0 +1,183 @@
+# Despliegue continuo simulado (entorno efímero del runner, no un servidor persistente).
+#
+# Activación: workflow_run del workflow "CI" al completarse.
+# Solo despliega si ese CI fue un push a develop y terminó en success.
+# El checkout usa el SHA de ese run, no el HEAD que tenga develop más tarde.
+#
+# GitHub solo dispara workflow_run si este archivo está en la rama por defecto (main).
+# Hasta que cd.yml llegue a main, el disparo automático no ocurre.
+# workflow_dispatch queda limitado a develop y exige un CI push exitoso del mismo SHA.
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+
+# Un despliegue a la vez. No se cancela uno en curso: se espera, para no perder evidencia.
+concurrency:
+  group: cd-develop
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  deploy:
+    name: deploy-simulated
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Un CI fallido o un PR no despliegan. La ejecución manual entra y se valida en el primer paso.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'develop' &&
+       github.event.workflow_run.event == 'push')
+    env:
+      MYSQL_ROOT_PASSWORD: ci-only-root-not-for-production
+      MYSQL_PASSWORD: ci-only-app-not-for-production
+      DB_USER: alumno
+      DB_PASSWORD: ci-only-app-not-for-production
+      DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+      CI_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+    steps:
+      - name: Autorizar ejecución manual
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/develop" ]; then
+            echo "workflow_dispatch solo está autorizado en develop (ref=${GITHUB_REF})."
+            exit 1
+          fi
+          count="$(gh api --jq '.total_count' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${DEPLOY_SHA}&branch=develop&event=push&status=success&per_page=1")"
+          if [ "${count}" -lt 1 ]; then
+            echo "No hay un CI exitoso de push a develop para ${DEPLOY_SHA}. No se despliega."
+            exit 1
+          fi
+          echo "CI push a develop aprobado para ${DEPLOY_SHA}."
+
+      - name: Checkout del commit validado
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Confirmar SHA desplegado
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          if [ "${actual}" != "${DEPLOY_SHA}" ]; then
+            echo "El checkout ${actual} no coincide con el SHA autorizado ${DEPLOY_SHA}."
+            exit 1
+          fi
+          echo "Commit autorizado: ${actual}"
+
+      - name: Validar Docker Compose
+        id: config
+        run: docker compose config --quiet
+
+      - name: Construir imágenes
+        id: build
+        run: docker compose build
+
+      - name: Levantar los cuatro servicios
+        id: up
+        run: docker compose up -d
+
+      - name: Pruebas posteriores al despliegue
+        id: e2e
+        env:
+          TIMEOUT_SEC: "180"
+        run: |
+          set -o pipefail
+          bash scripts/e2e-reporting.sh | tee deployment-e2e.txt
+
+      - name: Registrar evidencia
+        if: always()
+        env:
+          CONFIG_OUTCOME: ${{ steps.config.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          UP_OUTCOME: ${{ steps.up.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p cd-evidence
+          ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          if [ -f docker-compose.yml ]; then
+            docker compose ps --all --format 'table {{.Name}}\t{{.Service}}\t{{.Status}}' > cd-evidence/services.txt || true
+          else
+            echo "docker-compose.yml no disponible en este punto" > cd-evidence/services.txt
+          fi
+          if [ -f deployment-e2e.txt ]; then
+            cp deployment-e2e.txt cd-evidence/e2e.txt
+          else
+            echo "La prueba E2E no llegó a ejecutarse." > cd-evidence/e2e.txt
+          fi
+          if [ "${E2E_OUTCOME}" = "success" ]; then
+            final="success"
+          else
+            final="failure"
+          fi
+          {
+            echo "# Informe de despliegue simulado"
+            echo
+            echo "- Resultado: ${final}"
+            echo "- SHA: ${DEPLOY_SHA}"
+            echo "- Rama: ${DEPLOY_BRANCH}"
+            echo "- Run de CD: ${GITHUB_RUN_ID}"
+            echo "- Run de CI que autorizó el automático: ${CI_RUN_ID:-n/a}"
+            echo "- Fecha UTC: ${ts}"
+            echo "- config: ${CONFIG_OUTCOME}"
+            echo "- build: ${BUILD_OUTCOME}"
+            echo "- up: ${UP_OUTCOME}"
+            echo "- e2e: ${E2E_OUTCOME}"
+            echo
+            echo "## Contenedores"
+            echo
+            echo '```'
+            cat cd-evidence/services.txt
+            echo '```'
+            echo
+            echo "## E2E"
+            echo
+            echo '```'
+            cat cd-evidence/e2e.txt
+            echo '```'
+          } > cd-evidence/deployment-report.md
+          {
+            echo "## Despliegue simulado: ${final}"
+            echo
+            echo "- SHA: \`${DEPLOY_SHA}\`"
+            echo "- Rama: \`${DEPLOY_BRANCH}\`"
+            echo "- Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- UTC: ${ts}"
+            echo "- Pasos: config=${CONFIG_OUTCOME}, build=${BUILD_OUTCOME}, up=${UP_OUTCOME}, e2e=${E2E_OUTCOME}"
+            echo
+            echo '```'
+            cat cd-evidence/services.txt
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publicar artifact deployment-report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: cd-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Limpiar contenedores y volúmenes del runner
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f docker-compose.yml ]; then
+            docker compose down --remove-orphans --volumes
+          fi

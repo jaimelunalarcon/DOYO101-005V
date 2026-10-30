@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reporte · Tienda de Alimentos para Perritos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Tienda de Alimentos para Perritos &#128054;</h1>
+    <p>Reporte de inventario</p>
+    <nav aria-label="Secciones principales">
+      <a href="/productos">Productos</a>
+      <a href="/reporte" class="active" aria-current="page">Reporte</a>
+    </nav>
+  </header>
+  <main>
+    <section id="seccion-reportes" class="card" aria-labelledby="titulo-reportes">
+      <h2 id="titulo-reportes">Reportes de inventario</h2>
+      <p class="muted">
+        Datos obtenidos vía Nginx → FastAPI → Express → MySQL (mismo origen, sin CORS).
+      </p>
+      <div class="actions">
+        <button id="btnCargarReportes" type="button">Actualizar reportes</button>
+        <button id="btnReintentarReportes" class="secondary" type="button" hidden>Reintentar</button>
+      </div>
+      <div id="reportes-status" class="status" role="status" aria-live="polite"></div>
+
+      <h3>Resumen general</h3>
+      <dl id="resumen-indicadores" class="kpi-grid" aria-live="polite">
+        <div class="kpi-card">
+          <dt>Total de productos</dt>
+          <dd id="kpi-total-productos">—</dd>
+        </div>
+        <div class="kpi-card">
+          <dt>Unidades en inventario</dt>
+          <dd id="kpi-total-unidades">—</dd>
+        </div>
+        <div class="kpi-card">
+          <dt>Valor total del inventario</dt>
+          <dd id="kpi-valor-inventario">—</dd>
+        </div>
+      </dl>
+
+      <h3>Productos con stock bajo</h3>
+      <p class="muted">Umbral: stock ≤ 5</p>
+      <p id="low-stock-empty" class="empty-state" hidden>No hay productos con stock bajo.</p>
+      <table aria-describedby="titulo-reportes">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Descripción</th>
+            <th scope="col">Precio</th>
+            <th scope="col">Stock</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyLowStock"></tbody>
+      </table>
+
+      <h3>Productos con mayor valor de inventario</h3>
+      <p class="muted">Top 5 por valor (precio × stock)</p>
+      <p id="top-value-empty" class="empty-state" hidden>No hay productos para mostrar.</p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Descripción</th>
+            <th scope="col">Precio</th>
+            <th scope="col">Stock</th>
+            <th scope="col">Valor inventario</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyTopValue"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/common.js"></script>
+  <script src="/reporte.js"></script>
+</body>
+</html>

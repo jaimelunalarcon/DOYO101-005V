@@ -117,11 +117,13 @@ services:
       - "8080:80"
     networks:
       - tienda-net
+    # La tienda arranca con Express healthy. No espera a FastAPI:
+    # si reporting-service no está disponible, /productos sigue y /reporte muestra error.
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/productos"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -3,7 +3,7 @@ FROM alpine:3.20 AS builder
 
 WORKDIR /app
 
-COPY index.html app.js default.conf ./
+COPY index.html reporte.html styles.css common.js productos.js reporte.js default.conf ./
 
 
 # Stage 2: servidor web
@@ -12,7 +12,11 @@ FROM nginx:1.27-alpine
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY --from=builder /app/index.html /usr/share/nginx/html/
-COPY --from=builder /app/app.js /usr/share/nginx/html/
+COPY --from=builder /app/reporte.html /usr/share/nginx/html/
+COPY --from=builder /app/styles.css /usr/share/nginx/html/
+COPY --from=builder /app/common.js /usr/share/nginx/html/
+COPY --from=builder /app/productos.js /usr/share/nginx/html/
+COPY --from=builder /app/reporte.js /usr/share/nginx/html/
 COPY --from=builder /app/default.conf /etc/nginx/conf.d/default.conf
 
 # Contenido estático de solo lectura para el usuario nginx

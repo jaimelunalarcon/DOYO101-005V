@@ -107,4 +107,4 @@ async function cargarReportes() {
 btnCargarReportes.addEventListener("click", cargarReportes);
 btnReintentarReportes.addEventListener("click", cargarReportes);
 
-cargarReportes();
+void cargarReportes();

@@ -59,7 +59,7 @@ function renderProductos(productos) {
     btnEliminar.className = "btn-eliminar danger";
     btnEliminar.addEventListener("click", () => {
       if (confirm("¿Seguro que deseas eliminar este producto?")) {
-        eliminarProducto(p.id);
+        void eliminarProducto(p.id);
       }
     });
 
@@ -83,15 +83,15 @@ function obtenerDatosFormulario() {
   return {
     nombre: inputNombre.value.trim(),
     descripcion: inputDescripcion.value.trim(),
-    precio: parseFloat(inputPrecio.value),
-    stock: parseInt(inputStock.value, 10),
+    precio: Number.parseFloat(inputPrecio.value),
+    stock: Number.parseInt(inputStock.value, 10),
   };
 }
 
 function validarProducto(prod) {
   if (!prod.nombre) return "El nombre es obligatorio.";
-  if (isNaN(prod.precio) || prod.precio < 0) return "El precio debe ser un número mayor o igual a 0.";
-  if (isNaN(prod.stock) || prod.stock < 0) return "El stock debe ser un número mayor o igual a 0.";
+  if (Number.isNaN(prod.precio) || prod.precio < 0) return "El precio debe ser un número mayor o igual a 0.";
+  if (Number.isNaN(prod.stock) || prod.stock < 0) return "El stock debe ser un número mayor o igual a 0.";
   return null;
 }
 
@@ -173,4 +173,4 @@ btnCancelar.addEventListener("click", () => {
   setStatus("Edición cancelada.", "ok");
 });
 
-cargarProductos();
+void cargarProductos();

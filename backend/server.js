@@ -37,6 +37,15 @@ async function initDb() {
   }
 }
 
+/** Inyecta un pool (p. ej. mock) para pruebas sin MySQL real. */
+function setPool(newPool) {
+  pool = newPool;
+}
+
+function getPool() {
+  return pool;
+}
+
 // Helper para manejar errores
 function handleError(res, error, message = "Error interno del servidor") {
   console.error(error);
@@ -133,8 +142,12 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Backend de tienda de perritos en ejecución." });
 });
 
-// Iniciar servidor
-app.listen(PORT, async () => {
-  console.log(`Servidor backend escuchando en puerto ${PORT}`);
-  await initDb();
-});
+// Iniciar servidor solo cuando se ejecuta directamente (no en tests)
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    console.log(`Servidor backend escuchando en puerto ${PORT}`);
+    await initDb();
+  });
+}
+
+module.exports = { app, initDb, setPool, getPool };

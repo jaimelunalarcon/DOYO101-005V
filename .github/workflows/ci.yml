@@ -119,7 +119,7 @@ jobs:
           pip-audit -r requirements.txt
 
       - name: Trivy FS — backend (HIGH/CRITICAL bloquean)
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: backend
@@ -130,7 +130,7 @@ jobs:
           ignore-unfixed: false
 
       - name: Trivy FS — reporting-service (HIGH/CRITICAL bloquean)
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: reporting-service
@@ -141,7 +141,7 @@ jobs:
           ignore-unfixed: false
 
       - name: Trivy FS — resumen LOW/MEDIUM (no bloquea)
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .

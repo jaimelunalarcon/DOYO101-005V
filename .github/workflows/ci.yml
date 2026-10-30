@@ -235,6 +235,13 @@ jobs:
     name: docker-build
     runs-on: ubuntu-latest
     needs: [tests-backend, tests-reporting, security-scan, sonarqube-analysis]
+    # Credenciales ficticias solo para interpolación de Compose (config + build).
+    # No son secretos reales ni se usan como credenciales de producción.
+    env:
+      MYSQL_ROOT_PASSWORD: ci-only-root-not-for-production
+      MYSQL_PASSWORD: ci-only-app-not-for-production
+      DB_USER: alumno
+      DB_PASSWORD: ci-only-app-not-for-production
     steps:
       - name: Checkout
         uses: actions/checkout@v4

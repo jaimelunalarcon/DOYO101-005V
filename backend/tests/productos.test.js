@@ -236,7 +236,35 @@ describe("API productos (Jest + Supertest, MySQL mockeado)", () => {
   });
 
   describe("initDb", () => {
+    let prevUser;
+    let prevPassword;
+    let prevHost;
+    let prevName;
+
+    beforeEach(() => {
+      prevUser = process.env.DB_USER;
+      prevPassword = process.env.DB_PASSWORD;
+      prevHost = process.env.DB_HOST;
+      prevName = process.env.DB_NAME;
+    });
+
+    afterEach(() => {
+      if (prevUser === undefined) delete process.env.DB_USER;
+      else process.env.DB_USER = prevUser;
+      if (prevPassword === undefined) delete process.env.DB_PASSWORD;
+      else process.env.DB_PASSWORD = prevPassword;
+      if (prevHost === undefined) delete process.env.DB_HOST;
+      else process.env.DB_HOST = prevHost;
+      if (prevName === undefined) delete process.env.DB_NAME;
+      else process.env.DB_NAME = prevName;
+    });
+
     it("crea el pool con mysql.createPool", async () => {
+      process.env.DB_USER = "alumno";
+      process.env.DB_PASSWORD = "test-password";
+      process.env.DB_HOST = "db";
+      process.env.DB_NAME = "tienda_perritos";
+
       const mysql = require("mysql2/promise");
       const fakePool = { query: jest.fn() };
       const createPoolSpy = jest.spyOn(mysql, "createPool").mockReturnValue(fakePool);
@@ -246,12 +274,26 @@ describe("API productos (Jest + Supertest, MySQL mockeado)", () => {
 
       expect(createPoolSpy).toHaveBeenCalled();
       expect(createPoolSpy.mock.calls[0][0]).toMatchObject({
+        user: "alumno",
         database: "tienda_perritos",
         connectionLimit: 10,
       });
 
       createPoolSpy.mockRestore();
       logSpy.mockRestore();
+    });
+
+    it("no crea pool si faltan credenciales", async () => {
+      delete process.env.DB_USER;
+      delete process.env.DB_PASSWORD;
+
+      const mysql = require("mysql2/promise");
+      const createPoolSpy = jest.spyOn(mysql, "createPool");
+
+      await initDb();
+
+      expect(createPoolSpy).not.toHaveBeenCalled();
+      createPoolSpy.mockRestore();
     });
   });
 });

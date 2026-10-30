@@ -4,6 +4,29 @@ Stack completo (Frontend + Backend + MySQL) orquestado con Docker Compose.
 
 ## Cómo ejecutar en local
 
+### Credenciales MySQL (obligatorio)
+
+1. Copiá el ejemplo y editá contraseñas propias (no commits de `.env`):
+
+```bash
+cp .env.example .env
+```
+
+2. En `.env`, reemplazá `REEMPLAZAR_PASSWORD_ROOT` y `REEMPLAZAR_PASSWORD_APP`.
+3. Si `DB_USER` es el mismo que `MYSQL_USER` (recomendado: `alumno`), entonces **`DB_PASSWORD` y `MYSQL_PASSWORD` deben coincidir**.
+4. El backend debe usar el usuario de aplicación (`alumno`), **no `root`**. `root` queda solo para administración del contenedor DB / healthcheck interno.
+5. Comprobar conexión sin exponer secretos:
+
+```bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+curl -sS http://127.0.0.1:3001/api/productos | head
+docker exec tienda-backend printenv DB_USER   # debe mostrar: alumno
+```
+
+> Nota: cambiar `MYSQL_USER` / `MYSQL_PASSWORD` en `.env` **no actualiza** usuarios de un volumen MySQL ya inicializado. Solo aplica en la primera creación del volumen.
+
 ```bash
 docker compose up --build
 ```

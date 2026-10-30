@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
+# Dependencias primero para maximizar caché de capas
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -16,4 +17,5 @@ USER appuser
 
 EXPOSE 8000
 
+# Healthcheck operativo definido en docker-compose.yml (fuente única).
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

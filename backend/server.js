@@ -5,22 +5,26 @@ const mysql = require("mysql2/promise");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const {
-  DB_HOST = "db", // nombre del servicio en docker-compose (local)
-  DB_USER = "root",
-  DB_PASSWORD = "admin123",
-  DB_NAME = "tienda_perritos",
-  DB_PORT = 3306,
-} = process.env;
-
 app.use(cors());
 app.use(express.json());
 
 let pool;
 
-// Inicializar pool de conexiones
+// Inicializar pool de conexiones (lee env en runtime para Compose/tests)
 async function initDb() {
   try {
+    const DB_HOST = process.env.DB_HOST || "db";
+    const DB_USER = process.env.DB_USER;
+    const DB_PASSWORD = process.env.DB_PASSWORD;
+    const DB_NAME = process.env.DB_NAME || "tienda_perritos";
+    const DB_PORT = Number(process.env.DB_PORT || 3306);
+
+    if (!DB_USER || !DB_PASSWORD) {
+      console.error(
+        "Faltan DB_USER y/o DB_PASSWORD. Configúralos en .env (usuario de aplicación, no root)."
+      );
+      return;
+    }
     pool = mysql.createPool({
       host: DB_HOST,
       user: DB_USER,
@@ -31,7 +35,7 @@ async function initDb() {
       connectionLimit: 10,
       queueLimit: 0,
     });
-    console.log("Pool de conexiones MySQL inicializado.");
+    console.log(`Pool de conexiones MySQL inicializado (usuario: ${DB_USER}).`);
   } catch (err) {
     console.error("Error al inicializar pool de MySQL:", err);
   }

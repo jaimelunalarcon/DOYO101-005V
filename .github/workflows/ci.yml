@@ -23,7 +23,7 @@ jobs:
         working-directory: backend
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 18
         uses: actions/setup-node@v4
@@ -53,7 +53,7 @@ jobs:
         working-directory: reporting-service
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 18 (para npm audit)
         uses: actions/setup-node@v4
@@ -157,7 +157,7 @@ jobs:
     needs: [tests-backend, tests-reporting]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -244,7 +244,7 @@ jobs:
       DB_PASSWORD: ci-only-app-not-for-production
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validar estructura del proyecto
         run: |

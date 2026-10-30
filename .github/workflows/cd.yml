@@ -65,7 +65,7 @@ jobs:
           echo "CI push a develop aprobado para ${DEPLOY_SHA}."
 
       - name: Checkout del commit validado
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
 

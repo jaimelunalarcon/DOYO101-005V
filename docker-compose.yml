@@ -1,17 +1,37 @@
+# Orquestación local endurecida (Etapa 5).
+# Credenciales: obligatorias vía .env (ver .env.example). No hay defaults de passwords.
 services:
   db:
     build: ./db
     container_name: tienda-db
-    ports:
-      - "3306:3306"
+    # Sin publicación al host: solo red interna Docker.
+    expose:
+      - "3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Debes configurar MYSQL_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-tienda_perritos}
+      MYSQL_USER: ${MYSQL_USER:-alumno}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Debes configurar MYSQL_PASSWORD en .env}
     volumes:
       - mysql-data:/var/lib/mysql
+    networks:
+      - tienda-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-padmin123"]
-      interval: 5s
+      # SELECT 1 autentica de verdad; mysqladmin ping puede dar OK con password incorrecta.
+      test:
+        [
+          "CMD-SHELL",
+          "mysql -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' --silent",
+        ]
+      interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 20s
+      retries: 10
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    # MySQL requiere capacidades propias del entrypoint; no se aplica cap_drop ALL.
+    mem_limit: 768m
+    cpus: 1.0
     restart: unless-stopped
 
   backend:
@@ -21,23 +41,37 @@ services:
       - "3001:3001"
     environment:
       PORT: 3001
-      DB_HOST: db
-      DB_USER: root
-      DB_PASSWORD: admin123
-      DB_NAME: tienda_perritos
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-db}
+      DB_USER: ${DB_USER:?Debes configurar DB_USER en .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Debes configurar DB_PASSWORD en .env}
+      DB_NAME: ${DB_NAME:-tienda_perritos}
+      DB_PORT: ${DB_PORT:-3306}
+    networks:
+      - tienda-net
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build: ./frontend
-    container_name: tienda-frontend
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/api/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    mem_limit: 256m
+    cpus: 0.50
     restart: unless-stopped
 
   reporting-service:
@@ -48,9 +82,69 @@ services:
     environment:
       BACKEND_URL: http://backend:3001
       HTTP_TIMEOUT_SECONDS: "5"
+    networks:
+      - tienda-net
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    mem_limit: 256m
+    cpus: 0.50
     restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: tienda-frontend
+    ports:
+      - "8080:80"
+    networks:
+      - tienda-net
+    # La tienda arranca con Express healthy. No espera a FastAPI:
+    # si reporting-service no está disponible, /productos sigue y /reporte muestra error.
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/productos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    # Nginx master en puerto 80 necesita NET_BIND_SERVICE y arranque privilegiado.
+    # Se documenta como limitación; se endurece con no-new-privileges + read_only.
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m,mode=1777
+      - /var/run:size=8m,mode=1777
+      - /tmp:size=8m,mode=1777
+      - /var/log/nginx:size=8m,mode=1777
+    mem_limit: 128m
+    cpus: 0.25
+    restart: unless-stopped
+
+networks:
+  tienda-net:
+    driver: bridge
 
 volumes:
   mysql-data:

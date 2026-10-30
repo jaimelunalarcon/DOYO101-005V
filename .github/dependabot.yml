@@ -21,6 +21,11 @@ updates:
     labels:
       - dependencies
       - python
+    groups:
+      python-test-runners:
+        patterns:
+          - pytest
+          - pytest-asyncio
 
   - package-ecosystem: github-actions
     directory: /

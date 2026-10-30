@@ -40,5 +40,17 @@ services:
       - backend
     restart: unless-stopped
 
+  reporting-service:
+    build: ./reporting-service
+    container_name: tienda-reporting
+    ports:
+      - "8000:8000"
+    environment:
+      BACKEND_URL: http://backend:3001
+      HTTP_TIMEOUT_SECONDS: "5"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   mysql-data:
